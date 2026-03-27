@@ -1,0 +1,26 @@
+# ROS build directories
+build/
+devel/
+install/
+
+# Catkin tools
+.catkin_tools/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

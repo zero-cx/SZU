@@ -1,0 +1,25 @@
+<launch>
+
+    <arg name="project" default="lio_sam"/>
+    
+    <!-- 参数：是否启用 GPS/Navsat 功能（需要安装 robot_localization 包） -->
+    <arg name="use_navsat" default="false"/>
+    
+    <!-- Parameters -->
+    <rosparam file="$(find lio_sam)/config/params.yaml" command="load" />
+
+    <!--- LOAM -->
+    <include file="$(find lio_sam)/launch/include/module_loam.launch" />
+
+    <!--- Robot State TF -->
+    <include file="$(find lio_sam)/launch/include/module_robot_state_publisher.launch" />
+
+    <!--- Run Navsat (可选，需要 robot_localization 包) -->
+    <group if="$(arg use_navsat)">
+        <include file="$(find lio_sam)/launch/include/module_navsat.launch" />
+    </group>
+
+    <!--- Run Rviz-->
+    <include file="$(find lio_sam)/launch/include/module_rviz.launch" />
+
+</launch>
