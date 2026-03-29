@@ -1,0 +1,28 @@
+<!-- QR码检测测试启动文件 -->
+<!-- 同时启动 D435 相机和 QR 检测节点 -->
+
+<launch>
+    <!-- 参数 -->
+    <arg name="marker_size" default="0.14" doc="QR码物理边长(米)，默认14cm"/>
+    <arg name="publish_image" default="true" doc="是否发布可视化图像"/>
+
+    <!-- 1. 启动 RealSense D435 -->
+    <include file="$(find realsense2_camera)/launch/rs_camera.launch">
+        <arg name="align_depth" value="true"/>
+        <arg name="enable_color" value="true"/>
+        <arg name="color_width" value="1280"/>
+        <arg name="color_height" value="720"/>
+        <arg name="color_fps" value="30"/>
+    </include>
+
+    <!-- 2. 启动 QR 检测节点 -->
+    <node pkg="lio_sam" type="lio_sam_qrDetection" name="lio_sam_qrDetection" output="screen">
+        <param name="marker_size" value="$(arg marker_size)"/>
+        <param name="publish_image" value="$(arg publish_image)"/>
+    </node>
+
+    <!-- 3. 可选：启动 rqt_image_view 查看检测结果 -->
+    <node pkg="rqt_image_view" type="rqt_image_view" name="qr_image_view" 
+          args="/qr_detection/image" if="$(arg publish_image)"/>
+
+</launch>

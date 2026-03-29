@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   cv_bridge
+  image_transport
   # pcl library
   pcl_conversions
   # msgs
@@ -102,3 +103,8 @@ target_link_libraries(${PROJECT_NAME}_mapOptmization Boost::timer ${catkin_LIBRA
 # IMU Preintegration
 add_executable(${PROJECT_NAME}_imuPreintegration src/imuPreintegration.cpp)
 target_link_libraries(${PROJECT_NAME}_imuPreintegration Boost::timer ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES} gtsam)
+
+# QR Code Detection
+add_executable(${PROJECT_NAME}_qrDetection src/qrDetection.cpp)
+add_dependencies(${PROJECT_NAME}_qrDetection ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+target_link_libraries(${PROJECT_NAME}_qrDetection ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
