@@ -98,20 +98,50 @@ private:
         return aruco::getPredefinedDictionary(it->second);
     }
 
+    string getStringParamWithFallback(const string& privateKey, const string& globalKey, const string& defaultValue)
+    {
+        string value = defaultValue;
+        if (pnh.getParam(privateKey, value) && !value.empty()) {
+            return value;
+        }
+
+        string globalValue;
+        if (nh.getParam("/lio_sam/" + globalKey, globalValue) && !globalValue.empty()) {
+            return globalValue;
+        }
+
+        return defaultValue;
+    }
+
+    template <typename T>
+    T getParamWithFallback(const string& privateKey, const string& globalKey, const T& defaultValue)
+    {
+        T value;
+        if (pnh.getParam(privateKey, value)) {
+            return value;
+        }
+
+        if (nh.getParam("/lio_sam/" + globalKey, value)) {
+            return value;
+        }
+
+        return defaultValue;
+    }
+
 public:
     QRDetection() : pnh("~"), cameraInfoReceived(false)
     {
-        pnh.param<string>("image_topic", imageTopic, "/camera/color/image_raw");
-        pnh.param<string>("camera_info_topic", cameraInfoTopic, "/camera/color/camera_info");
-        pnh.param<string>("pose_topic", poseTopic, "/qr_detection/pose");
-        pnh.param<string>("detection_topic", detectionTopic, "/qr_detection/detection");
-        pnh.param<string>("debug_image_topic", debugImageTopic, "/qr_detection/image");
-        pnh.param<string>("camera_frame", cameraFrame, "camera_color_optical_frame");
-        pnh.param<string>("dictionary_name", dictionaryName, "DICT_6X6_250");
+        imageTopic = getStringParamWithFallback("image_topic", "qrImageTopic", "/camera/color/image_raw");
+        cameraInfoTopic = getStringParamWithFallback("camera_info_topic", "qrCameraInfoTopic", "/camera/color/camera_info");
+        poseTopic = getStringParamWithFallback("pose_topic", "qrPoseTopic", "/qr_detection/pose");
+        detectionTopic = getStringParamWithFallback("detection_topic", "qrDetectionTopic", "/qr_detection/detection");
+        debugImageTopic = getStringParamWithFallback("debug_image_topic", "qrDebugImageTopic", "/qr_detection/image");
+        cameraFrame = getStringParamWithFallback("camera_frame", "qrCameraFrame", "camera_color_optical_frame");
+        dictionaryName = getStringParamWithFallback("dictionary_name", "qrDictionaryName", "DICT_6X6_250");
 
-        pnh.param<double>("marker_size", markerSize, 0.14);
-        pnh.param<bool>("publish_image", publishImage, true);
-        pnh.param<double>("confidence_threshold", minConfidence, 0.5);
+        markerSize = getParamWithFallback<double>("marker_size", "qrMarkerSize", 0.14);
+        publishImage = getParamWithFallback<bool>("publish_image", "qrPublishImage", false);
+        minConfidence = getParamWithFallback<double>("confidence_threshold", "qrConfidenceThreshold", 0.55);
 
         pnh.param<int>("adaptive_thresh_win_size_min", adaptiveThreshWinSizeMin, 3);
         pnh.param<int>("adaptive_thresh_win_size_max", adaptiveThreshWinSizeMax, 23);

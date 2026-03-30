@@ -1,9 +1,14 @@
 lio_sam:
-  # TODO: 将下方坐标替换为实测值（单位：米），顺序需与 ID 一一对应
+  # Site: corridor_A_floor3
+  # SurveyDate: 2026-03-30
+  # Origin: corridor entrance center mark on floor
+  # Axis: x-forward along corridor, y-left, z-up
+  # Unit: meter
+  # Landmark point definition: center of QR marker plane
   qrLandmarkIds: [0, 1, 2, 3]
   qrLandmarkXYZ: [
-    0.0, 0.0, 1.4,
-    4.0, 0.0, 1.4,
-    8.0, 0.0, 1.4,
-    12.0, 0.0, 1.4
+    2.0, -1.2, 1.40,
+    6.0,  1.2, 1.40,
+    10.0, -1.2, 1.40,
+    14.0,  1.2, 1.40
   ]

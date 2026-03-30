@@ -28,11 +28,22 @@ lio_sam:
   qrMaxDistance: 4.5
   qrLandmarkIds: [0, 1, 2, 3]  # fallback only; prefer config/qr_landmarks.yaml
   qrLandmarkXYZ: [
-    0.0, 0.0, 1.4,
-    4.0, 0.0, 1.4,
-    8.0, 0.0, 1.4,
-    12.0, 0.0, 1.4
+    2.0, -1.2, 1.40,
+    6.0,  1.2, 1.40,
+    10.0, -1.2, 1.40,
+    14.0,  1.2, 1.40
   ]
+
+  # QR detection deploy defaults (used by qrDetection when private params are not explicitly set)
+  qrImageTopic: "/camera/color/image_raw"
+  qrCameraInfoTopic: "/camera/color/camera_info"
+  qrPoseTopic: "/qr_detection/pose"
+  qrDebugImageTopic: "/qr_detection/image"
+  qrCameraFrame: "camera_color_optical_frame"
+  qrDictionaryName: "DICT_6X6_250"
+  qrMarkerSize: 0.14
+  qrConfidenceThreshold: 0.55
+  qrPublishImage: false
   
   # Export settings
   savePCD: false                              # https://github.com/TixiaoShan/LIO-SAM/issues/3
