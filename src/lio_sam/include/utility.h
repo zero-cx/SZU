@@ -96,6 +96,17 @@ public:
     float gpsCovThreshold;
     float poseCovThreshold;
 
+    // QR factor settings
+    bool useQRFactor;
+    std::string qrDetectionTopic;
+    float qrTimeTolerance;
+    float qrMinConfidence;
+    float qrMinDistanceDelta;
+    float qrNoise;
+    float qrMaxDistance;
+    std::vector<int> qrLandmarkIds;
+    std::vector<double> qrLandmarkXYZ;
+
     // Save pcd
     bool savePCD;
     std::string savePCDDirectory;
@@ -179,6 +190,16 @@ public:
         nh.param<bool>("lio_sam/useGpsElevation", useGpsElevation, false);
         nh.param<float>("lio_sam/gpsCovThreshold", gpsCovThreshold, 2.0);
         nh.param<float>("lio_sam/poseCovThreshold", poseCovThreshold, 25.0);
+
+        nh.param<bool>("lio_sam/useQRFactor", useQRFactor, false);
+        nh.param<std::string>("lio_sam/qrDetectionTopic", qrDetectionTopic, "/qr_detection/detection");
+        nh.param<float>("lio_sam/qrTimeTolerance", qrTimeTolerance, 0.2);
+        nh.param<float>("lio_sam/qrMinConfidence", qrMinConfidence, 0.5);
+        nh.param<float>("lio_sam/qrMinDistanceDelta", qrMinDistanceDelta, 1.0);
+        nh.param<float>("lio_sam/qrNoise", qrNoise, 2.0);
+        nh.param<float>("lio_sam/qrMaxDistance", qrMaxDistance, 6.0);
+        nh.param<std::vector<int>>("lio_sam/qrLandmarkIds", qrLandmarkIds, std::vector<int>());
+        nh.param<std::vector<double>>("lio_sam/qrLandmarkXYZ", qrLandmarkXYZ, std::vector<double>());
 
         nh.param<bool>("lio_sam/savePCD", savePCD, false);
         nh.param<std::string>("lio_sam/savePCDDirectory", savePCDDirectory, "/Downloads/LOAM/");

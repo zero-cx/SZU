@@ -17,6 +17,22 @@ lio_sam:
   useGpsElevation: false                      # if GPS elevation is bad, set to "false"
   gpsCovThreshold: 2.0                        # m^2, threshold for using GPS data
   poseCovThreshold: 25.0                      # m^2, threshold for using GPS data
+
+  # QR factor settings (production defaults; landmarks are overridden by config/qr_landmarks.yaml)
+  useQRFactor: true
+  qrDetectionTopic: "/qr_detection/detection"
+  qrTimeTolerance: 0.12
+  qrMinConfidence: 0.65
+  qrMinDistanceDelta: 1.50
+  qrNoise: 1.0
+  qrMaxDistance: 4.5
+  qrLandmarkIds: [0, 1, 2, 3]  # fallback only; prefer config/qr_landmarks.yaml
+  qrLandmarkXYZ: [
+    0.0, 0.0, 1.4,
+    4.0, 0.0, 1.4,
+    8.0, 0.0, 1.4,
+    12.0, 0.0, 1.4
+  ]
   
   # Export settings
   savePCD: false                              # https://github.com/TixiaoShan/LIO-SAM/issues/3

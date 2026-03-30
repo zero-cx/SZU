@@ -150,14 +150,62 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 /lio_sam/mapping/map_global          # 全局地图
 ```
 
+## ✅ QR融合部署与验收（新增）
+
+### 1) 启动方式
+
+```bash
+# 仅LIO-SAM
+roslaunch lio_sam run.launch
+
+# 启用QR检测链路（仅检测）
+roslaunch lio_sam run.launch use_qr_detection:=true
+
+# 启用QR后端融合（在params.yaml中将 useQRFactor 设为 true）
+roslaunch lio_sam run.launch use_qr_detection:=true
+```
+
+### 2) 部署输入要求
+
+- 地标配置文件：`src/lio_sam/config/qr_landmarks.yaml`
+- 参数文件：`src/lio_sam/config/params.yaml`
+  - `qrLandmarkIds` 与 `qrLandmarkXYZ` 必须一一对应（XYZ按3个一组）
+  - `qrDetectionTopic` 默认：`/qr_detection/detection`
+
+### 3) 观测与融合验收点
+
+```bash
+# 观测话题
+rostopic echo /qr_detection/detection
+
+# 轨迹输出
+rostopic echo /lio_sam/mapping/odometry
+
+# 路径输出
+rostopic echo /lio_sam/mapping/path
+```
+
+验收建议：
+- 同场景对比两次：`useQRFactor=false` 与 `useQRFactor=true`
+- 统计漂移与回环前后稳定性差异
+- 记录调参（`qrMinConfidence`、`qrNoise`、`qrMaxDistance`）
+
+### 4) 回滚方案
+
+- 快速回滚到原流程：
+  1. `params.yaml` 设置 `useQRFactor: false`
+  2. 启动时不带 `use_qr_detection:=true`
+- 仅保留检测调试（不融合）：
+  - `use_qr_detection:=true` 且 `useQRFactor: false`
+
 ## 🎯 下一步
 
-1. **准备数据**: 使用 rosbag 录制或下载公开数据集
-2. **标定外参**: 使用 lio_sam 的 IMU 调试工具
-3. **调整参数**: 根据传感器型号修改配置
-4. **运行测试**: `roslaunch lio_sam run.launch`
+1. **补全真实地标坐标**: 根据现场测量更新 `qr_landmarks.yaml`
+2. **完成场地AB测试**: 同路线对比“纯LIO-SAM/QR融合”
+3. **参数收敛**: 固化 `qrMinConfidence/qrNoise/qrMaxDistance`
+4. **上线策略**: 先检测后融合，异常可一键回滚
 
 ---
 
 **环境**: ROS Noetic + Ubuntu 20.04  
-**状态**: ✅ 就绪运行
+**状态**: ✅ 已支持QR检测与可选融合

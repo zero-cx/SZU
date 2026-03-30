@@ -1,5 +1,6 @@
 #include "utility.h"
 #include "lio_sam/cloud_info.h"
+#include "lio_sam/qr_detection.h"
 #include "lio_sam/save_map.h"
 
 using namespace std;
@@ -80,10 +81,15 @@ public:
     ros::Subscriber subCloud;
     ros::Subscriber subGPS;
     ros::Subscriber subLoop;
+    ros::Subscriber subQR;
 
     ros::ServiceServer srvSaveMap;
 
     std::deque<nav_msgs::Odometry> gpsQueue;
+    std::deque<lio_sam::qr_detection> qrQueue;
+    std::map<int, gtsam::Point3> qrLandmarkMap;
+    PointType lastQRPoint;
+    bool hasLastQRPoint = false;
     lio_sam::cloud_info cloudInfo;
 
     vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
@@ -172,6 +178,7 @@ public:
         subCloud = nh.subscribe<lio_sam::cloud_info>("lio_sam/feature/cloud_info", 1, &mapOptimization::laserCloudInfoHandler, this, ros::TransportHints().tcpNoDelay());
         subGPS   = nh.subscribe<nav_msgs::Odometry> (gpsTopic, 200, &mapOptimization::gpsHandler, this, ros::TransportHints().tcpNoDelay());
         subLoop  = nh.subscribe<std_msgs::Float64MultiArray>("lio_loop/loop_closure_detection", 1, &mapOptimization::loopInfoHandler, this, ros::TransportHints().tcpNoDelay());
+        subQR    = nh.subscribe<lio_sam::qr_detection>(qrDetectionTopic, 100, &mapOptimization::qrHandler, this, ros::TransportHints().tcpNoDelay());
 
         srvSaveMap  = nh.advertiseService("lio_sam/save_map", &mapOptimization::saveMapService, this);
 
@@ -191,6 +198,9 @@ public:
         downSizeFilterSurroundingKeyPoses.setLeafSize(surroundingKeyframeDensity, surroundingKeyframeDensity, surroundingKeyframeDensity); // for surrounding key poses of scan-to-map optimization
 
         allocateMemory();
+        loadQRLandmarks();
+
+        ROS_INFO("QR factor: %s, topic: %s, landmarks: %zu", useQRFactor ? "enabled" : "disabled", qrDetectionTopic.c_str(), qrLandmarkMap.size());
     }
 
     void allocateMemory()
@@ -234,6 +244,47 @@ public:
         }
 
         matP = cv::Mat(6, 6, CV_32F, cv::Scalar::all(0));
+    }
+
+    void loadQRLandmarks()
+    {
+        qrLandmarkMap.clear();
+
+        if (qrLandmarkIds.empty() || qrLandmarkXYZ.empty())
+            return;
+
+        if (qrLandmarkXYZ.size() % 3 != 0)
+        {
+            ROS_WARN("qrLandmarkXYZ length must be a multiple of 3, current: %zu", qrLandmarkXYZ.size());
+            return;
+        }
+
+        size_t xyzCount = qrLandmarkXYZ.size() / 3;
+        size_t count = std::min(qrLandmarkIds.size(), xyzCount);
+        if (count != qrLandmarkIds.size() || count != xyzCount)
+        {
+            ROS_WARN("QR landmark config size mismatch: ids=%zu xyz_triplets=%zu", qrLandmarkIds.size(), xyzCount);
+        }
+
+        for (size_t i = 0; i < count; ++i)
+        {
+            qrLandmarkMap[qrLandmarkIds[i]] = gtsam::Point3(
+                qrLandmarkXYZ[i * 3 + 0],
+                qrLandmarkXYZ[i * 3 + 1],
+                qrLandmarkXYZ[i * 3 + 2]);
+        }
+    }
+
+    void qrHandler(const lio_sam::qr_detectionConstPtr& msg)
+    {
+        if (!useQRFactor)
+            return;
+
+        std::lock_guard<std::mutex> lock(mtx);
+        qrQueue.push_back(*msg);
+
+        while (qrQueue.size() > 500)
+            qrQueue.pop_front();
     }
 
     void laserCloudInfoHandler(const lio_sam::cloud_infoConstPtr& msgIn)
@@ -1496,6 +1547,89 @@ public:
         aLoopIsClosed = true;
     }
 
+    void addQRFactor()
+    {
+        if (!useQRFactor || qrQueue.empty() || qrLandmarkMap.empty())
+            return;
+
+        lio_sam::qr_detection selected;
+        bool found = false;
+        const double lowerBound = timeLaserInfoCur - qrTimeTolerance;
+        const double upperBound = timeLaserInfoCur + qrTimeTolerance;
+
+        while (!qrQueue.empty() && qrQueue.front().header.stamp.toSec() < lowerBound)
+            qrQueue.pop_front();
+
+        for (const auto& m : qrQueue)
+        {
+            const double ts = m.header.stamp.toSec();
+            if (ts < lowerBound)
+                continue;
+            if (ts > upperBound)
+                break;
+            if (!found || m.confidence > selected.confidence)
+            {
+                selected = m;
+                found = true;
+            }
+        }
+
+        if (!found)
+            return;
+
+        if (selected.confidence < qrMinConfidence)
+            return;
+
+        if (selected.distance > qrMaxDistance)
+            return;
+
+        auto landmarkIt = qrLandmarkMap.find(selected.marker_id);
+        if (landmarkIt == qrLandmarkMap.end())
+            return;
+
+        const double x_cam = selected.pose.position.x;
+        const double y_cam = selected.pose.position.y;
+        const double z_cam = selected.pose.position.z;
+
+        const double x_lidar = z_cam;
+        const double y_lidar = -x_cam;
+        const double z_lidar = -y_cam;
+
+        const Eigen::Affine3f transCur = trans2Affine3f(transformTobeMapped);
+        const Eigen::Vector3f offsetInMap = transCur.rotation() * Eigen::Vector3f(x_lidar, y_lidar, z_lidar);
+        const gtsam::Point3& markerWorld = landmarkIt->second;
+
+        PointType qrPoint;
+        qrPoint.x = markerWorld.x() - offsetInMap.x();
+        qrPoint.y = markerWorld.y() - offsetInMap.y();
+        qrPoint.z = markerWorld.z() - offsetInMap.z();
+
+        if (hasLastQRPoint && pointDistance(qrPoint, lastQRPoint) < qrMinDistanceDelta)
+            return;
+
+        lastQRPoint = qrPoint;
+        hasLastQRPoint = true;
+
+        const double sigma = std::max(0.2, static_cast<double>(qrNoise) / std::max(0.2f, selected.confidence));
+        gtsam::Vector Vector3(3);
+        Vector3 << sigma * sigma, sigma * sigma, sigma * sigma;
+
+        noiseModel::Diagonal::shared_ptr qr_noise = noiseModel::Diagonal::Variances(Vector3);
+        gtsam::GPSFactor qr_factor(cloudKeyPoses3D->size(), gtsam::Point3(qrPoint.x, qrPoint.y, qrPoint.z), qr_noise);
+        gtSAMgraph.add(qr_factor);
+
+        aLoopIsClosed = true;
+
+        ROS_INFO_THROTTLE(1.0,
+                          "QR factor added: id=%d conf=%.2f dist=%.2f pose=(%.2f, %.2f, %.2f)",
+                          selected.marker_id,
+                          selected.confidence,
+                          selected.distance,
+                          qrPoint.x,
+                          qrPoint.y,
+                          qrPoint.z);
+    }
+
     void saveKeyFramesAndFactor()
     {
         if (saveFrame() == false)
@@ -1509,6 +1643,9 @@ public:
 
         // loop factor
         addLoopFactor();
+
+        // qr factor
+        addQRFactor();
 
         // cout << "****************************************************" << endl;
         // gtSAMgraph.print("GTSAM Graph:\n");

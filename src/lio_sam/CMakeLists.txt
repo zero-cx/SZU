@@ -33,6 +33,7 @@ add_message_files(
   DIRECTORY msg
   FILES
   cloud_info.msg
+  qr_detection.msg
 )
 
 add_service_files(
